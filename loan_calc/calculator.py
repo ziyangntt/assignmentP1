@@ -149,17 +149,23 @@ def prepayment_savings(
     """
     instalment = emi(principal, annual_rate, tenure_months)
     sched = amortisation_schedule(principal, annual_rate, tenure_months)
+
     balance = sched[prepay_month - 1]["balance"]
-    new_balance = balance - prepay_amount
+    actual_prepay = min(prepay_amount, balance)
+    new_balance = balance - actual_prepay
+
     if new_balance <= 0:
         months_left = 0
     else:
         months_left = remaining_tenure(new_balance, annual_rate, instalment)
+
     original_left = tenure_months - prepay_month
     interest_paid_so_far = sum(row["interest"] for row in sched[:prepay_month])
     original_interest = total_interest(principal, annual_rate, tenure_months)
-    new_total = instalment * prepay_month + prepay_amount + instalment * months_left
+
+    new_total = instalment * prepay_month + actual_prepay + instalment * months_left
     new_interest = new_total - principal
+
     return {
         "emi": instalment,
         "months_saved": original_left - months_left,
