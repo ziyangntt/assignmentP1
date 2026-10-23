@@ -64,7 +64,7 @@ def outstanding_after(principal, annual_rate, tenure_months, months_paid):
 
 
 def remaining_tenure(balance, annual_rate, instalment):
-    r = annual_rate / 100
+    r = _monthly_rate(annual_rate)
     if balance <= 0:
         return 0
     if r == 0:
