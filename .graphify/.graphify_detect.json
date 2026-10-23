@@ -1,0 +1,33 @@
+{
+  "files": {
+    "code": [
+      "cli.py",
+      "loan_calc/__init__.py",
+      "loan_calc/calculator.py"
+    ],
+    "document": [],
+    "paper": [],
+    "image": [],
+    "video": []
+  },
+  "total_files": 3,
+  "total_words": 660,
+  "needs_graph": false,
+  "warning": "Corpus is ~660 words - fits in a single context window. You may not need a graph.",
+  "skipped_sensitive": [],
+  "graphifyignore_patterns": 52,
+  "scope": {
+    "requested_mode": "all",
+    "resolved_mode": "all",
+    "source": "configured-default",
+    "root": ".",
+    "candidate_count": null,
+    "included_count": 3,
+    "excluded_untracked_count": 0,
+    "excluded_ignored_count": 0,
+    "excluded_sensitive_count": 0,
+    "missing_committed_count": 0,
+    "warnings": [],
+    "recommendation": null
+  }
+}

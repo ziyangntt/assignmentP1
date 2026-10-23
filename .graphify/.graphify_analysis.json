@@ -1,0 +1,169 @@
+{
+  "communities": {
+    "0": [
+      "loan_calc_calculator",
+      "loan_calc_calculator_amortisation_schedule",
+      "loan_calc_calculator_eligible_amount",
+      "loan_calc_calculator_format_inr",
+      "loan_calc_calculator_monthly_rate",
+      "loan_calc_calculator_outstanding_after",
+      "loan_calc_calculator_schedule_to_csv"
+    ],
+    "1": [
+      "loan_calc_calculator_compare_offers",
+      "loan_calc_calculator_emi",
+      "loan_calc_calculator_summary",
+      "loan_calc_calculator_total_interest",
+      "loan_calc_calculator_total_payment"
+    ],
+    "2": [
+      "loan_calc_calculator_prepayment_savings",
+      "loan_calc_calculator_rationale_79",
+      "loan_calc_calculator_remaining_tenure"
+    ],
+    "3": [
+      "cli",
+      "cli_main"
+    ],
+    "4": [
+      "loan_calc_init"
+    ]
+  },
+  "cohesion": {
+    "0": 0.42857142857142855,
+    "1": 0.7,
+    "2": 0.6666666666666666,
+    "3": 1,
+    "4": 1
+  },
+  "gods": [
+    {
+      "id": "loan_calc_calculator_emi",
+      "label": "emi()",
+      "edges": 7,
+      "degree": 7
+    },
+    {
+      "id": "loan_calc_calculator_prepayment_savings",
+      "label": "prepayment_savings()",
+      "edges": 6,
+      "degree": 6
+    },
+    {
+      "id": "loan_calc_calculator_total_interest",
+      "label": "total_interest()",
+      "edges": 5,
+      "degree": 5
+    },
+    {
+      "id": "loan_calc_calculator_amortisation_schedule",
+      "label": "amortisation_schedule()",
+      "edges": 5,
+      "degree": 5
+    },
+    {
+      "id": "loan_calc_calculator_summary",
+      "label": "summary()",
+      "edges": 5,
+      "degree": 5
+    },
+    {
+      "id": "loan_calc_calculator_monthly_rate",
+      "label": "_monthly_rate()",
+      "edges": 4,
+      "degree": 4
+    },
+    {
+      "id": "loan_calc_calculator_total_payment",
+      "label": "total_payment()",
+      "edges": 4,
+      "degree": 4
+    },
+    {
+      "id": "loan_calc_calculator_compare_offers",
+      "label": "compare_offers()",
+      "edges": 3,
+      "degree": 3
+    },
+    {
+      "id": "loan_calc_calculator_outstanding_after",
+      "label": "outstanding_after()",
+      "edges": 2,
+      "degree": 2
+    },
+    {
+      "id": "loan_calc_calculator_remaining_tenure",
+      "label": "remaining_tenure()",
+      "edges": 2,
+      "degree": 2
+    }
+  ],
+  "surprises": [
+    {
+      "source": "amortisation_schedule()",
+      "target": "emi()",
+      "source_files": [
+        "loan_calc/calculator.py",
+        "loan_calc/calculator.py"
+      ],
+      "confidence": "EXTRACTED",
+      "relation": "calls",
+      "note": "Bridges community 0 → community 1"
+    },
+    {
+      "source": "prepayment_savings()",
+      "target": "amortisation_schedule()",
+      "source_files": [
+        "loan_calc/calculator.py",
+        "loan_calc/calculator.py"
+      ],
+      "confidence": "EXTRACTED",
+      "relation": "calls",
+      "note": "Bridges community 2 → community 0"
+    },
+    {
+      "source": "prepayment_savings()",
+      "target": "emi()",
+      "source_files": [
+        "loan_calc/calculator.py",
+        "loan_calc/calculator.py"
+      ],
+      "confidence": "EXTRACTED",
+      "relation": "calls",
+      "note": "Bridges community 2 → community 1"
+    }
+  ],
+  "questions": [
+    {
+      "type": "bridge_node",
+      "question": "Why does `prepayment_savings()` connect `Community 2` to `Community 0`, `Community 1`?",
+      "why": "High betweenness centrality (0.112) - this node is a cross-community bridge."
+    },
+    {
+      "type": "bridge_node",
+      "question": "Why does `emi()` connect `Community 1` to `Community 0`, `Community 2`?",
+      "why": "High betweenness centrality (0.047) - this node is a cross-community bridge."
+    },
+    {
+      "type": "bridge_node",
+      "question": "Why does `total_interest()` connect `Community 1` to `Community 0`, `Community 2`?",
+      "why": "High betweenness centrality (0.020) - this node is a cross-community bridge."
+    },
+    {
+      "type": "isolated_nodes",
+      "question": "What connects `Keep the same EMI after a lump-sum prepayment and shorten the tenure.` to the rest of the system?",
+      "why": "1 weakly-connected nodes found - possible documentation gaps or missing edges."
+    }
+  ],
+  "labels": {
+    "0": "Community 0",
+    "1": "Community 1",
+    "2": "Community 2",
+    "3": "Community 3",
+    "4": "Community 4"
+  },
+  "tokens": {
+    "input": 0,
+    "output": 0
+  }
+}
