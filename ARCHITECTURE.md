@@ -1,13 +1,15 @@
 # loan-calc — Architecture / Function Guide
 
-This document explains what each public function in `loan_calc/` does, its inputs/outputs, and how the pieces fit together. It reflects the **current code as-is** (including known quirks/bugs), so it can be used as a baseline before fixing the seeded issues in later steps.
+This document explains what each public function in `loan_calc/` does, its inputs/outputs, and how the pieces fit together.
+
+It reflects the **current code as-is**. Earlier versions of this repo contained seeded bugs; those sections are updated to match the fixed implementation.
 
 ## Package layout
 
 - `loan_calc/__init__.py` — package export surface (re-exports functions).
 - `loan_calc/calculator.py` — implementation of all core calculations (EMI, schedule, prepayment, etc.).
 - `cli.py` — thin CLI wrapper around the library functions.
-- `tests/` — empty starter test folder.
+- `tests/` — pytest test suite (unit tests + coverage).
 
 ---
 
@@ -19,25 +21,24 @@ A constant used by `summary()` to label output currency.
 ---
 
 ### `_monthly_rate(annual_rate)`
-**Purpose:** Convert an annual percentage rate (APR) into a monthly rate used for interest calculations.
+**Purpose:** Convert an annual percentage rate (APR, in %) into a monthly **decimal** rate used for interest calculations.
 
-**Signature:** `def _monthly_rate(annual_rate):`
+**Signature:** `def _monthly_rate(annual_rate: float) -> float:`
 
 **Inputs**
 - `annual_rate`: nominal annual interest rate in percent (e.g. `9` means 9% p.a.)
 
 **Output**
-- Returns `r` as a decimal monthly rate (e.g. `9% / 12` → `0.0075`) rounded to 4 decimals.
+- Returns `r` as a decimal monthly rate (e.g. `9% / 12` → `0.0075`).
 
 **Notes / behavior**
-- The function rounds the monthly rate to **4 decimal places**:
+- The monthly rate is **not rounded** inside this helper (rounding early caused noticeable EMI drift for some APRs like 8.5%).
   ```py
-  r = round(annual_rate / 1200, 4)
+  r = annual_rate / 1200
   ```
-  This rounding affects downstream results (EMI, total interest, schedules).
 
 **Used by**
-- `emi()`, `amortisation_schedule()`, `eligible_amount()`
+- `emi()`, `amortisation_schedule()`, `eligible_amount()`, `remaining_tenure()`
 
 ---
 
@@ -71,10 +72,11 @@ A constant used by `summary()` to label output currency.
 **Purpose:** Total amount paid over the full tenure, assuming constant EMI and full tenure payments.
 
 **Output**
-- `emi(...) * tenure_months`, rounded to 2 decimals.
+- Total paid, rounded to 2 decimals.
 
 **Notes**
-- Uses `emi()` internally; so its rounding and `_monthly_rate()` rounding affect totals.
+- For `annual_rate == 0`, total payment is exactly the principal (rounded to 2 decimals).
+- For non-zero rates, it avoids using `(rounded EMI) * tenure_months` for totals to reduce rounding artefacts; it computes the total from an unrounded EMI value and rounds only the final total.
 
 ---
 
@@ -83,6 +85,9 @@ A constant used by `summary()` to label output currency.
 
 **Output**
 - `total_payment(...) - principal`, rounded to 2 decimals.
+
+**Notes**
+- For `annual_rate == 0`, returns exactly `0.0`.
 
 ---
 
@@ -107,18 +112,20 @@ A constant used by `summary()` to label output currency.
   - `instalment = emi(...)`
   - iterates:
     ```py
-    for month in range(1, tenure_months):
+    for month in range(1, tenure_months + 1):
     ```
-  - For each `month`, calculates:
-    - `interest = round(balance * r, 2)`
-    - `principal_part = round(instalment - interest, 2)`
-    - `balance = round(balance - principal_part, 2)`
-    - stores row with `balance` clamped at minimum 0.
+- For months `1..tenure_months-1`:
+  - `interest = round(balance * r, 2)`
+  - `principal_part = round(instalment - interest, 2)`
+  - `instalment_amt = instalment`
+- For the final month (`month == tenure_months`):
+  - principal is set to the remaining balance (rounded), and the final EMI is adjusted as:
+    `instalment_amt = principal_part + interest`
+- Balance is updated and clamped at minimum 0.
 
-**Important quirk / likely bug**
-- The loop is `range(1, tenure_months)`, which yields months `1..tenure_months-1`.  
-  That means the schedule returns **tenure_months - 1 rows**, not `tenure_months` rows.
-- There is also an `if month == tenure_months:` block intended to adjust the final instalment, but it is currently **unreachable** because the loop never reaches `tenure_months`.
+**Notes**
+- The schedule returns exactly `tenure_months` rows.
+- The last month adjusts the principal/EMI to ensure the loan closes cleanly even with rounding.
 
 **Used by**
 - `outstanding_after()`, `prepayment_savings()`, and the CLI `--schedule` output.
@@ -132,44 +139,37 @@ A constant used by `summary()` to label output currency.
 - `months_paid`: if `<= 0`, treated as none paid.
 
 **Output**
-- Remaining balance as float.
+- Remaining balance as float (rounded to 2 decimals for the `months_paid <= 0` case).
 
 **Logic**
-- If `months_paid <= 0`: returns principal
+- If `months_paid <= 0`: returns `round(principal, 2)`
 - Else it generates the amortisation schedule and returns the balance at index `months_paid - 1`
 - If `months_paid > len(schedule)`: returns `0.0`
 
 **Notes**
-- Because `amortisation_schedule()` currently returns `tenure_months - 1` rows, the behavior near the end of the tenure can be off.
+- Since the schedule now returns exactly `tenure_months` rows, `months_paid == tenure_months` is well-defined.
 
 ---
 
 ### `remaining_tenure(balance, annual_rate, instalment)`
-**Purpose:** Compute how many months are needed to pay off a given `balance` at a fixed periodic payment.
+**Purpose:** Compute how many months are needed to pay off a given `balance` at a fixed monthly payment.
 
 **Output**
 - An integer number of months (ceiled).
 
 **Logic (as currently implemented)**
-- Uses:
+- Uses the monthly rate derived from APR:
   ```py
-  r = annual_rate / 100
-  ```
-  and then applies:
-  ```py
-  if instalment <= balance * r:
-      raise ValueError("instalment too small to repay the loan")
-  n = -log(1 - balance*r/instalment) / log(1+r)
+  r = _monthly_rate(annual_rate)
   ```
 - If `balance <= 0`: returns 0
 - If `r == 0`: returns `ceil(balance / instalment)`
-
-**Important quirk / likely bug**
-- Unlike the rest of the module, this function treats `annual_rate/100` as the **per-period rate**.  
-  Elsewhere, interest is calculated with `_monthly_rate(annual_rate)` (APR percent → monthly decimal).
-- As a result, when `annual_rate` is an APR percent like `9`, this function effectively uses `0.09` **per month** rather than `0.0075` per month, which can cause:
-  - spurious `ValueError("instalment too small...")`
-  - incorrect tenure estimates
+- If `instalment <= balance * r`: raises `ValueError("instalment too small to repay the loan")`
+- Else:
+  ```py
+  n = -log(1 - balance*r/instalment) / log(1+r)
+  ```
+  and returns `ceil(n)`.
 
 **Used by**
 - `prepayment_savings()`
@@ -208,9 +208,9 @@ A dict:
    - `new_interest = new_total - principal`
 7. Return the savings summary.
 
-**Notes / quirks**
-- Depends on both `amortisation_schedule()` row count and `remaining_tenure()` interest rate handling.
-- The CLI example `--prepay-month 24 --prepay-amount 200000` currently throws `ValueError: instalment too small to repay the loan` due to the `remaining_tenure()` rate mismatch described above.
+**Notes**
+- Depends on `amortisation_schedule()` and `remaining_tenure()` for the post-prepayment tenure estimate.
+- With the corrected monthly-rate handling in `remaining_tenure()`, typical prepayment inputs should not throw `ValueError` unless the payment is genuinely too small to amortise the balance.
 
 ---
 
@@ -340,14 +340,14 @@ Provides a minimal command-line interface to:
 - If prepay args set, prints prepayment savings as JSON.
 
 ### Known issue: `--help` crash
-Running `python cli.py --help` crashes with:
+Running `python cli.py --help` may crash with:
 `ValueError: incomplete format`
 
 Reason: `argparse` expands `%` sequences in help strings. This CLI defines:
 ```py
 ap.add_argument("rate", type=float, help="annual interest rate in %")
 ```
-The `%` is treated like a format specifier during help rendering. Escaping as `%%` would fix it, but the code is unchanged in this step.
+The `%` is treated like a format specifier during help rendering. Escaping as `%%` would fix it.
 
 ---
 
