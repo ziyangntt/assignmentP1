@@ -56,15 +56,32 @@ def total_payment(principal: float, annual_rate: float, tenure_months: int) -> f
 
     Assumes the EMI stays constant for the full stated tenure.
 
+    Note:
+        Avoid multiplying the *rounded* EMI by tenure_months. Rounding EMI to 2dp
+        is correct for display/payment purposes, but using that rounded number for
+        totals can introduce small rounding artefacts (e.g. at 0% APR).
+
     Args:
         principal: Loan amount.
         annual_rate: Nominal APR in percent.
         tenure_months: Tenure in months.
 
     Returns:
-        Total paid (EMI * tenure_months), rounded to 2 decimals.
+        Total paid, rounded to 2 decimals.
     """
-    return round(emi(principal, annual_rate, tenure_months) * tenure_months, 2)
+    if tenure_months <= 0:
+        raise ValueError("tenure must be positive")
+    if principal <= 0:
+        raise ValueError("principal must be positive")
+
+    r = _monthly_rate(annual_rate)
+    if r == 0:
+        # At 0% APR, the borrower repays exactly the principal.
+        return round(principal, 2)
+
+    f = (1 + r) ** tenure_months
+    emi_exact = principal * r * f / (f - 1)
+    return round(emi_exact * tenure_months, 2)
 
 
 def total_interest(principal: float, annual_rate: float, tenure_months: int) -> float:
@@ -78,6 +95,8 @@ def total_interest(principal: float, annual_rate: float, tenure_months: int) -> 
     Returns:
         Total interest, rounded to 2 decimals.
     """
+    if annual_rate == 0:
+        return 0.0
     return round(total_payment(principal, annual_rate, tenure_months) - principal, 2)
 
 
@@ -105,14 +124,17 @@ def amortisation_schedule(
     instalment = emi(principal, annual_rate, tenure_months)
     balance = principal
     rows: list[dict[str, float | int]] = []
-    for month in range(1, tenure_months):
+    for month in range(1, tenure_months + 1):
         interest = round(balance * r, 2)
-        principal_part = round(instalment - interest, 2)
+
         if month == tenure_months:
+            # Adjust final payment to clear any remaining balance after rounding.
             principal_part = round(balance, 2)
             instalment_amt = round(principal_part + interest, 2)
         else:
+            principal_part = round(instalment - interest, 2)
             instalment_amt = instalment
+
         balance = round(balance - principal_part, 2)
         rows.append(
             {
