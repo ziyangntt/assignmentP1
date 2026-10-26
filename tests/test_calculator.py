@@ -23,10 +23,9 @@ def test_total_interest_zero_interest_is_zero():
     assert c.total_interest(250_000, 0.0, 24) == 0.0
 
 
-def test_amortisation_schedule_row_count_is_tenure_minus_one_current_behavior():
-    # Current seeded bug/quirk: schedule has tenure_months-1 rows.
+def test_amortisation_schedule_row_count_is_full_tenure():
     sched = c.amortisation_schedule(100_000, 9.0, 12)
-    assert len(sched) == 11
+    assert len(sched) == 12
 
 
 def test_amortisation_schedule_first_row_fields_and_types():
