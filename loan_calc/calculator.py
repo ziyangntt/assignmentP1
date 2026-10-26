@@ -174,14 +174,9 @@ def remaining_tenure(balance: float, annual_rate: float, instalment: float) -> i
 
     Uses a logarithmic rearrangement of the amortisation formula.
 
-    Notes:
-        This reflects the current implementation "as-is". Unlike other functions,
-        it treats annual_rate/100 as the per-period rate (not the monthly rate derived
-        from APR). This can cause incorrect results for typical APR inputs.
-
     Args:
         balance: Outstanding principal amount.
-        annual_rate: Interest rate input in percent.
+        annual_rate: Nominal APR in percent.
         instalment: Fixed monthly payment amount.
 
     Returns:
@@ -190,7 +185,7 @@ def remaining_tenure(balance: float, annual_rate: float, instalment: float) -> i
     Raises:
         ValueError: If instalment is too small to ever amortise the balance.
     """
-    r = annual_rate / 100
+    r = _monthly_rate(annual_rate)
     if balance <= 0:
         return 0
     if r == 0:
