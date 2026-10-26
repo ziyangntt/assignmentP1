@@ -59,14 +59,18 @@ def test_format_inr_basic_and_negative():
     assert c.format_inr(-1_000_000) == "-₹10,00,000.00"
 
 
-def test_compare_offers_sorted_by_total_cost():
+def test_compare_offers_sorted_by_total_cost_and_defaults_processing_fee():
     offers = [
+        # omit processing_fee_pct to cover default path in compare_offers()
+        {"bank": "B", "rate": 9.0, "tenure": 12},
         {"bank": "A", "rate": 10.0, "tenure": 12, "processing_fee_pct": 1.0},
-        {"bank": "B", "rate": 9.0, "tenure": 12, "processing_fee_pct": 0.0},
     ]
     out = c.compare_offers(100_000, offers)
-    assert [o["bank"] for o in out] == sorted([o["bank"] for o in out], key=lambda b: next(x["total_cost"] for x in out if x["bank"] == b))
+    assert len(out) == 2
     assert out[0]["total_cost"] <= out[1]["total_cost"]
+    # Ensure missing processing_fee_pct is treated as 0
+    b = next(x for x in out if x["bank"] == "B")
+    assert b["processing_fee"] == 0.0
 
 
 def test_large_principal_does_not_overflow_and_returns_finite_results():
@@ -91,3 +95,36 @@ def test_prepayment_larger_than_balance_returns_months_left_zero():
     savings = c.prepayment_savings(p, 0.0, 12, prepay_month=1, prepay_amount=1_000_000)
     assert savings["new_tenure"] == 1  # prepay_month + 0
     assert savings["months_saved"] == 11
+
+
+def test_emi_rejects_non_positive_inputs():
+    with pytest.raises(ValueError, match="tenure must be positive"):
+        c.emi(100_000, 9.0, 0)
+    with pytest.raises(ValueError, match="principal must be positive"):
+        c.emi(0, 9.0, 12)
+
+
+def test_total_payment_rejects_non_positive_inputs():
+    with pytest.raises(ValueError, match="tenure must be positive"):
+        c.total_payment(100_000, 9.0, 0)
+    with pytest.raises(ValueError, match="principal must be positive"):
+        c.total_payment(0, 9.0, 12)
+
+
+def test_total_interest_non_zero_rate_path():
+    # Covers the non-zero APR branch in total_interest()
+    assert c.total_interest(100_000, 9.0, 12) > 0
+
+
+def test_remaining_tenure_zero_rate_and_negative_balance_cases():
+    # balance <= 0 path
+    assert c.remaining_tenure(0.0, 9.0, 1000.0) == 0
+    assert c.remaining_tenure(-1.0, 9.0, 1000.0) == 0
+    # r == 0 path
+    assert c.remaining_tenure(10_000.0, 0.0, 1000.0) == 10
+
+
+def test_remaining_tenure_raises_if_instalment_too_small():
+    # instalment <= balance * r should raise
+    with pytest.raises(ValueError, match="instalment too small"):
+        c.remaining_tenure(100_000.0, 12.0, instalment=1.0)
