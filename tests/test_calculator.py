@@ -19,7 +19,6 @@ def test_emi_one_month_tenure_nonzero_interest():
     assert c.emi(p, 12.0, 1) == round(p * (1 + r), 2)
 
 
-@pytest.mark.xfail(reason="Seeded rounding/precision issue: EMI is rounded to 2dp before multiplying, causing a small non-zero interest at 0% APR.")
 def test_total_interest_zero_interest_is_zero():
     assert c.total_interest(250_000, 0.0, 24) == 0.0
 
@@ -81,7 +80,6 @@ def test_large_principal_does_not_overflow_and_returns_finite_results():
     assert ti > 0
 
 
-@pytest.mark.xfail(reason="Seeded bug: remaining_tenure uses annual_rate/100 as per-period rate, causing ValueError for typical APR inputs.")
 def test_prepayment_savings_typical_case_should_not_raise():
     # Typical scenario should not raise, but currently does due to remaining_tenure bug.
     c.prepayment_savings(1_000_000, 9.0, 240, 24, 200_000)
